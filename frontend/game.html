@@ -1,1 +1,18 @@
-
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Game - QuizVerse</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto}</style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-3xl mx-auto p-6">
+    <h1 class="text-2xl font-bold">Game Room: <span id="roomCodeText"></span></h1>
+    <div id="playerArea" class="mt-4 p-4 bg-white rounded shadow"></div>
+    <div id="questionArea" class="mt-4 p-6 bg-white rounded shadow"></div>
+  </div>
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
