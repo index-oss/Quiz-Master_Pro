@@ -1,1 +1,31 @@
-
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Lobby - QuizVerse</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto}</style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div class="max-w-3xl mx-auto p-6">
+    <h1 class="text-2xl font-bold">Create or Join Room</h1>
+    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="p-4 bg-white rounded shadow">
+        <h2 class="font-semibold">Create Room</h2>
+        <input id="hostName" placeholder="Your name" class="mt-2 w-full p-2 border rounded" />
+        <button id="createBtn" class="mt-2 bg-indigo-600 text-white px-4 py-2 rounded">Create</button>
+        <div id="createdBox" class="mt-2 hidden p-2 bg-green-50 rounded"></div>
+      </div>
+      <div class="p-4 bg-white rounded shadow">
+        <h2 class="font-semibold">Join Room</h2>
+        <input id="roomCode" placeholder="Room code" class="mt-2 w-full p-2 border rounded" />
+        <input id="joinName" placeholder="Your name" class="mt-2 w-full p-2 border rounded" />
+        <button id="joinBtn" class="mt-2 bg-amber-400 text-indigo-900 px-4 py-2 rounded">Join</button>
+        <div id="joinedBox" class="mt-2 hidden p-2 bg-green-50 rounded"></div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="js/lobby.js"></script>
+</body>
+</html>
