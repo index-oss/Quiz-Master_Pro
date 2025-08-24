@@ -1,16 +1,208 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Leaderboard - QuizVerse</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Complete — Leaderboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<style>
+  body {
+    background: linear-gradient(120deg,#06081A,#6D28D9 25%,#0F172A 50%,#06B6D4 75%);
+    background-size: 300% 300%;
+    animation: gradientMove 18s ease infinite;
+    font-family: 'Poppins', sans-serif;
+    overflow-x: hidden;
+  }
+  @keyframes gradientMove {
+    0%{background-position:0% 50%}
+    50%{background-position:100% 50%}
+    100%{background-position:0% 50%}
+  }
+  .glass {
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .rank-glow-1 { box-shadow: 0 0 25px rgba(251,191,36,0.9); }
+  .rank-glow-2 { box-shadow: 0 0 25px rgba(236,72,153,0.9); }
+  .rank-glow-3 { box-shadow: 0 0 25px rgba(6,182,212,0.9); }
+  .animate-fade-scale {
+    animation: fadeScale 0.8s ease forwards;
+  }
+  @keyframes fadeScale {
+    from { opacity: 0; transform: scale(0.8) translateY(20px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .badge {
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    display: inline-block;
+  }
+  .podium {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 1rem;
+  }
+  .podium > div {
+    text-align: center;
+    padding: 1rem;
+    border-radius: 1rem;
+  }
+  .podium img {
+    border-radius: 50%;
+    border: 3px solid white;
+  }
+  .achievement-card {
+    transition: transform 0.3s ease;
+  }
+  .achievement-card:hover {
+    transform: scale(1.05);
+  }
+</style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-  <div class="max-w-3xl mx-auto p-6">
-    <h1 class="text-2xl font-bold">Leaderboard</h1>
-    <div id="leaderList" class="mt-4 bg-white p-4 rounded shadow"></div>
+<body class="text-white">
+
+<!-- Title -->
+<div class="text-center mt-8 px-4">
+  <h1 class="text-4xl md:text-6xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-amber-400 via-pink-500 to-cyan-400 animate-fade-scale">
+    🏆 Game Complete
+  </h1>
+  <p class="text-white/70 mt-2">Final results are in! Here’s how everyone did.</p>
+</div>
+
+<!-- Podium for Top 3 -->
+<div class="podium mt-10 px-4">
+  <div id="second" class="glass rank-glow-2">
+    <img class="w-16 h-16" src="" alt="">
+    <h3 class="mt-2 font-bold">🥈</h3>
+    <div class="text-lg font-extrabold score">0</div>
   </div>
+  <div id="first" class="glass rank-glow-1 scale-110">
+    <img class="w-20 h-20" src="" alt="">
+    <h3 class="mt-2 font-bold">👑</h3>
+    <div class="text-lg font-extrabold score">0</div>
+  </div>
+  <div id="third" class="glass rank-glow-3">
+    <img class="w-16 h-16" src="" alt="">
+    <h3 class="mt-2 font-bold">🥉</h3>
+    <div class="text-lg font-extrabold score">0</div>
+  </div>
+</div>
+
+<!-- Leaderboard List -->
+<div id="leaderboard" class="max-w-4xl mx-auto mt-10 grid grid-cols-1 gap-4 px-4"></div>
+
+<!-- Achievements -->
+<div class="max-w-4xl mx-auto mt-12 px-4">
+  <h2 class="text-2xl font-bold mb-4">🏅 Achievements</h2>
+  <div id="achievements" class="grid grid-cols-2 sm:grid-cols-4 gap-4"></div>
+</div>
+
+<!-- Buttons -->
+<div class="flex flex-wrap justify-center gap-4 mt-8 px-4">
+  <button onclick="playAgain()" class="px-6 py-3 rounded-xl glass hover:scale-105 hover:bg-gradient-to-r hover:from-emerald-400 hover:to-amber-400 transition-all duration-300">🔄 Play Again</button>
+  <button onclick="backToLobby()" class="px-6 py-3 rounded-xl glass hover:scale-105 hover:bg-gradient-to-r hover:from-amber-400 hover:to-pink-500 transition-all duration-300">🏠 Back to Lobby</button>
+  <button onclick="shareResults()" class="px-6 py-3 rounded-xl glass hover:scale-105 hover:bg-gradient-to-r hover:from-cyan-400 hover:to-emerald-400 transition-all duration-300">📤 Share</button>
+</div>
+
+<script>
+const players = [
+  { name: "Alice", score: 1200, time: 45, accuracy: 95, avatar: "https://i.pravatar.cc/150?u=alice" },
+  { name: "Bob", score: 950, time: 40, accuracy: 88, avatar: "https://i.pravatar.cc/150?u=bob" },
+  { name: "Charlie", score: 780, time: 55, accuracy: 72, avatar: "https://i.pravatar.cc/150?u=charlie" },
+  { name: "David", score: 620, time: 50, accuracy: 65, avatar: "https://i.pravatar.cc/150?u=david" }
+];
+
+// Sort by score
+players.sort((a,b) => b.score - a.score);
+
+// Fill podium
+document.querySelector("#first img").src = players[0].avatar;
+document.querySelector("#second img").src = players[1].avatar;
+document.querySelector("#third img").src = players[2].avatar;
+
+document.querySelector("#first .score").textContent = players[0].score;
+document.querySelector("#second .score").textContent = players[1].score;
+document.querySelector("#third .score").textContent = players[2].score;
+
+function getBadge(player, index) {
+  if (index === 0) return { text: "🥇 MVP", color: "bg-amber-400 text-indigo-900" };
+  if (player.time <= 45) return { text: "⚡ Fast Thinker", color: "bg-cyan-400 text-indigo-900" };
+  if (player.score >= 800) return { text: "🎯 Sharp Shooter", color: "bg-pink-500 text-white" };
+  return { text: "🛡️ Resilient", color: "bg-emerald-400 text-indigo-900" };
+}
+
+const leaderboardDiv = document.getElementById("leaderboard");
+players.forEach((player, i) => {
+  const badge = getBadge(player, i);
+  const el = document.createElement("div");
+  el.className = `glass rounded-xl p-4 flex items-center justify-between animate-fade-scale`;
+  el.style.animationDelay = `${i * 0.2}s`;
+  el.innerHTML = `
+    <div class="flex items-center gap-4">
+      <img src="${player.avatar}" alt="${player.name}" class="w-12 h-12 rounded-full border-2 border-white/30">
+      <div>
+        <div class="font-bold text-lg flex items-center gap-2">${i+1}. ${player.name}</div>
+        <div class="badge ${badge.color}">${badge.text}</div>
+        <div class="text-xs text-white/60">Accuracy: ${player.accuracy}% | Time: ${player.time}s</div>
+      </div>
+    </div>
+    <div class="text-xl font-extrabold" id="score-${i}">0</div>
+  `;
+  leaderboardDiv.appendChild(el);
+
+  // Smooth score counting
+  let start = 0;
+  const duration = 1000;
+  const startTime = performance.now();
+  function animateScore(time) {
+    const progress = Math.min((time - startTime) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+    document.getElementById(`score-${i}`).textContent = Math.floor(eased * player.score);
+    if (progress < 1) requestAnimationFrame(animateScore);
+  }
+  requestAnimationFrame(animateScore);
+});
+
+// Achievements
+const achievementsDiv = document.getElementById("achievements");
+const achievementList = [
+  { icon: "🎯", text: "Perfect Accuracy" },
+  { icon: "⚡", text: "Fastest Answer" },
+  { icon: "📈", text: "Comeback Kid" },
+  { icon: "🏆", text: "Quiz Legend" }
+];
+achievementList.forEach(a => {
+  const card = document.createElement("div");
+  card.className = "glass p-4 rounded-xl text-center achievement-card";
+  card.innerHTML = `<div class="text-3xl">${a.icon}</div><div class="mt-2 text-sm">${a.text}</div>`;
+  achievementsDiv.appendChild(card);
+});
+
+// Confetti for winner
+setTimeout(() => {
+  confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+}, 500);
+
+function playAgain() {
+  alert("Play Again clicked — hook this to your game start.");
+}
+function backToLobby() {
+  alert("Back to Lobby clicked — link to lobby page.");
+}
+function shareResults() {
+  const text = `I just scored ${players[0].score} points in QuizVerse! 🏆`;
+  if (navigator.share) {
+    navigator.share({ title: 'QuizVerse Results', text });
+  } else {
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+  }
+}
+</script>
   <script type="module" src="js/leaderboard.js"></script>
 </body>
 </html>
