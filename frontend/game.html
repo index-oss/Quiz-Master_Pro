@@ -3,16 +3,584 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Game - QuizVerse</title>
+  <title>QuizVerse — Game</title>
+
+  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto}</style>
+
+  <!-- Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    h1, .brand { font-family: 'Bungee', cursive; }
+    /* Timer ring */
+    .timer-ring { stroke-dasharray: 440; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear; }
+    /* Small touches */
+    .btn-answer:focus { outline: 3px solid rgba(99,102,241,0.35); outline-offset: 3px; }
+    .correct { animation: popCorrect 400ms ease forwards; }
+    .wrong { animation: shakeWrong 420ms ease forwards; }
+    @keyframes popCorrect { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    @keyframes shakeWrong { 0% { transform: translateX(0);} 20% { transform: translateX(-6px);} 40% { transform: translateX(6px);} 60% { transform: translateX(-4px);} 80% { transform: translateX(2px);} 100% { transform: translateX(0);} }
+    /* subtle fade */
+    .fade-in { animation: fadeIn 360ms ease forwards; opacity: 0; }
+    @keyframes fadeIn { to { opacity: 1; } }
+  </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-  <div class="max-w-3xl mx-auto p-6">
-    <h1 class="text-2xl font-bold">Game Room: <span id="roomCodeText"></span></h1>
-    <div id="playerArea" class="mt-4 p-4 bg-white rounded shadow"></div>
-    <div id="questionArea" class="mt-4 p-6 bg-white rounded shadow"></div>
+<body class="bg-gradient-to-br from-indigo-900 via-purple-700 to-indigo-900 min-h-screen text-white p-6">
+
+  <header class="max-w-5xl mx-auto flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <div class="brand text-2xl sm:text-3xl">🚀 QuizVerse</div>
+      <div class="hidden sm:block text-gray-300">Battle • Learn • Win</div>
+    </div>
+    <div class="flex items-center gap-4">
+      <div id="live-stats" class="text-sm text-teal-300">🎮 Demo Mode</div>
+      <button id="leave-btn" class="bg-white text-indigo-800 px-3 py-1 rounded-full font-semibold hover:scale-105 transition">Leave</button>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+    <!-- LEFT: Game Card -->
+    <section class="lg:col-span-2 bg-white/5 rounded-2xl p-6 shadow-lg">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <div id="avatar-preview" class="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-pink-500 flex items-center justify-center text-indigo-900 font-bold">A</div>
+          <div>
+            <div id="player-name" class="font-semibold">You</div>
+            <div id="streak" class="text-xs text-amber-300">🔥 Streak: 0</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-sm text-gray-200">Score</div>
+          <div id="score" class="text-2xl font-bold">0</div>
+        </div>
+      </div>
+
+      <!-- Question area -->
+      <div id="question-card" class="rounded-xl bg-white/10 p-6 mb-4">
+        <div class="flex items-start gap-4">
+          <!-- Timer circle -->
+          <div class="w-20 h-20 relative">
+            <svg viewBox="0 0 150 150" class="w-20 h-20">
+              <defs>
+                <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#F59E0B" />
+                  <stop offset="100%" stop-color="#EC4899" />
+                </linearGradient>
+              </defs>
+              <circle cx="75" cy="75" r="70" stroke="rgba(255,255,255,0.08)" stroke-width="10" fill="transparent"></circle>
+              <circle id="timer-ring" cx="75" cy="75" r="70" stroke="url(#grad)" stroke-width="10" stroke-linecap="round" fill="transparent" class="timer-ring" transform="rotate(-90 75 75)"></circle>
+            </svg>
+            <div id="timer-text" class="absolute inset-0 flex items-center justify-center text-sm font-semibold">15s</div>
+          </div>
+
+          <div class="flex-1">
+            <div id="q-meta" class="text-xs text-amber-300 mb-1">Question <span id="q-index">1</span> / <span id="q-total">10</span></div>
+            <h2 id="question-text" class="text-lg sm:text-xl font-semibold leading-tight">Loading question...</h2>
+            <p id="q-difficulty" class="text-xs text-gray-300 mt-2">Difficulty: <span class="capitalize">medium</span></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Answers -->
+      <div id="answers" class="grid sm:grid-cols-2 gap-4">
+        <!-- Buttons injected by JS -->
+      </div>
+
+      <!-- Controls -->
+      <div class="mt-6 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <button id="skip-btn" class="bg-white/10 px-4 py-2 rounded-full text-sm hover:bg-white/20 transition">⏭ Skip</button>
+          <button id="50-btn" class="bg-white/10 px-4 py-2 rounded-full text-sm hover:bg-white/20 transition">50/50</button>
+          <button id="hint-btn" class="bg-white/10 px-4 py-2 rounded-full text-sm hover:bg-white/20 transition">💡 Hint</button>
+        </div>
+        <div class="text-sm text-gray-300">Use keys <span class="font-semibold">1-4</span> to answer</div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Sidebar -->
+    <aside class="bg-white/5 rounded-2xl p-6 h-fit shadow-lg flex flex-col gap-4">
+      <div class="text-sm text-gray-300">Leaderboard</div>
+      <div id="leaderboard" class="space-y-3">
+        <!-- simulated entries -->
+      </div>
+
+      <div class="mt-3">
+        <div class="text-sm text-gray-300 mb-2">Progress</div>
+        <div class="bg-white/10 rounded-full h-3 overflow-hidden">
+          <div id="progress-bar" class="h-3 rounded-full bg-amber-400 w-0 transition-all"></div>
+        </div>
+        <div class="text-xs text-gray-300 mt-2">Best: <span id="best-score">0</span></div>
+      </div>
+
+      <div class="mt-4">
+        <button id="end-btn" class="w-full bg-amber-500 text-indigo-900 font-semibold px-4 py-2 rounded-full hover:scale-105 transition">End Game</button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Results Modal (hidden) -->
+  <div id="results-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-xl text-indigo-900">
+      <div class="flex items-center justify-between">
+        <h3 class="text-2xl font-bold">Game Over</h3>
+        <div id="final-score" class="text-3xl font-extrabold">0</div>
+      </div>
+      <p id="results-summary" class="text-gray-700 mt-2">Great run! Here's how you did.</p>
+
+      <div class="grid grid-cols-2 gap-3 mt-4 text-sm">
+        <div class="bg-indigo-50 p-3 rounded-lg">
+          <div class="text-gray-500">Correct</div>
+          <div id="stat-correct" class="font-bold text-amber-500">0</div>
+        </div>
+        <div class="bg-indigo-50 p-3 rounded-lg">
+          <div class="text-gray-500">Wrong</div>
+          <div id="stat-wrong" class="font-bold text-rose-500">0</div>
+        </div>
+        <div class="bg-indigo-50 p-3 rounded-lg">
+          <div class="text-gray-500">Streak</div>
+          <div id="stat-streak" class="font-bold text-teal-500">0</div>
+        </div>
+        <div class="bg-indigo-50 p-3 rounded-lg">
+          <div class="text-gray-500">Time Bonus</div>
+          <div id="stat-timebonus" class="font-bold text-purple-600">0</div>
+        </div>
+      </div>
+
+      <div class="mt-4 flex gap-3">
+        <button id="replay-btn" class="flex-1 bg-amber-500 text-indigo-900 rounded-full py-2 font-semibold hover:scale-105 transition">Play Again</button>
+        <button id="share-btn" class="flex-1 bg-white text-indigo-900 rounded-full py-2 border border-indigo-100 font-semibold">Share</button>
+      </div>
+    </div>
   </div>
+
+  <!-- Audio -->
+  <audio id="sfx-correct" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_207876fb60.mp3?filename=button-124476.mp3" preload="auto"></audio>
+  <audio id="sfx-wrong" src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_8cf8b5a9f1.mp3?filename=retro-fail-buzzer-6343.mp3" preload="auto"></audio>
+  <audio id="sfx-next" src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_9f8470a6b1.mp3?filename=click-124467.mp3" preload="auto"></audio>
+
+  <script>
+    /* ============================
+       Basic game engine (client)
+       ============================ */
+
+    // Utilities
+    const qs = (sel, ctx=document) => ctx.querySelector(sel);
+    const qsa = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
+    const params = new URLSearchParams(location.search);
+    const isDemo = params.get('demo') === '1';
+
+    // DOM
+    const timerRing = qs('#timer-ring');
+    const timerText = qs('#timer-text');
+    const questionText = qs('#question-text');
+    const qIndexEl = qs('#q-index');
+    const qTotalEl = qs('#q-total');
+    const answersEl = qs('#answers');
+    const scoreEl = qs('#score');
+    const streakEl = qs('#streak');
+    const progressBar = qs('#progress-bar');
+    const leaderboardEl = qs('#leaderboard');
+    const bestScoreEl = qs('#best-score');
+    const avatarPreview = qs('#avatar-preview');
+
+    const resultsModal = qs('#results-modal');
+    const finalScoreEl = qs('#final-score');
+    const statCorrectEl = qs('#stat-correct');
+    const statWrongEl = qs('#stat-wrong');
+    const statStreakEl = qs('#stat-streak');
+    const statTimeBonusEl = qs('#stat-timebonus');
+
+    // Sounds
+    const sfxCorrect = qs('#sfx-correct');
+    const sfxWrong = qs('#sfx-wrong');
+    const sfxNext = qs('#sfx-next');
+
+    // Game config
+    const QUESTION_TIME = 15; // seconds
+    const TOTAL_QUESTIONS = 10;
+
+    // State
+    let questionIndex = 0;
+    let score = 0;
+    let streak = 0;
+    let best = parseInt(localStorage.getItem('quizverse_best') || '0', 10);
+    let correctCount = 0;
+    let wrongCount = 0;
+    let timeBonus = 0;
+    let timer = null;
+    let timeLeft = QUESTION_TIME;
+    let questions = []; // will be populated
+    let answered = false;
+
+    bestScoreEl.textContent = best;
+
+    // Sample question bank (mix of types). In real app, fetch from API.
+    const SAMPLE = [
+      {q: "Which is the correct plural of 'mouse'?", choices: ["mouses","mice","meese","mices"], a: 1, difficulty: "easy"},
+      {q: "Select the correct sentence:", choices: ["He don't like tea.","They isn't here.","She doesn't know.","I isn't ready."], a: 2, difficulty: "medium"},
+      {q: "Choose the synonym of 'ephemeral':", choices: ["lasting","fleeting","eternal","steady"], a: 1, difficulty: "hard"},
+      {q: "Fill: 'I _____ to the store yesterday.'", choices: ["go","went","gone","going"], a: 1, difficulty: "easy"},
+      {q: "Which word is an adjective?", choices: ["quickly","happiness","blue","run"], a: 2, difficulty: "easy"},
+      {q: "Pick the correctly punctuated sentence:", choices: ["Let's eat, Grandma.","Lets eat Grandma.","Lets eat, Grandma","Lets eat Grandma!"], a: 0, difficulty: "medium"},
+      {q: "What is an antonym for 'abundant'?", choices: ["plentiful","sparse","ample","bountiful"], a: 1, difficulty: "hard"},
+      {q: "Which is a past participle?", choices: ["see","seen","saw","seeing"], a: 1, difficulty: "medium"},
+      {q: "Choose the correct preposition: 'She is good ___ math.'", choices: ["on","at","in","for"], a: 1, difficulty: "easy"},
+      {q: "Identify the subject: 'The quick fox jumped over the fence.'", choices: ["jumped","quick","the fence","the quick fox"], a: 3, difficulty: "easy"},
+      // add more if you want
+    ];
+
+    // If demo mode, pick random questions and shuffle answers
+    function prepareQuestions() {
+      const bank = isDemo ? SAMPLE.slice() : SAMPLE.slice(); // replace with fetched data in real app
+      // shuffle and pick TOTAL_QUESTIONS
+      const shuffled = bank.sort(() => Math.random() - 0.5).slice(0, TOTAL_QUESTIONS);
+      // shuffle choices per question
+      return shuffled.map(q => {
+        const choices = q.choices.map((c, idx) => ({text:c, originalIndex: idx}));
+        // attach correct index to the option after shuffle
+        const shuffledChoices = choices.sort(() => Math.random() - 0.5);
+        const newIndex = shuffledChoices.findIndex(c => c.originalIndex === q.a);
+        return { text: q.q, difficulty: q.difficulty, choices: shuffledChoices.map(c => c.text), correct: newIndex };
+      });
+    }
+
+    // Render leaderboard (simulated)
+    function renderLeaderboard() {
+      const sample = [
+        {name:"Nova", score: 420},
+        {name:"Ace", score: 360},
+        {name:"Luna", score: 310},
+      ];
+      leaderboardEl.innerHTML = '';
+      sample.forEach((p, idx) => {
+        const el = document.createElement('div');
+        el.className = 'flex items-center justify-between bg-white/5 p-3 rounded-lg';
+        el.innerHTML = `<div class="flex items-center gap-3">
+                         <div class="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center font-semibold">${idx+1}</div>
+                         <div>
+                           <div class="font-semibold">${p.name}</div>
+                           <div class="text-xs text-gray-300">Rank ${idx+1}</div>
+                         </div>
+                        </div>
+                        <div class="font-bold text-amber-400">${p.score}</div>`;
+        leaderboardEl.appendChild(el);
+      });
+    }
+
+    // Start new game
+    function startGame() {
+      questions = prepareQuestions();
+      questionIndex = 0;
+      score = 0;
+      streak = 0;
+      correctCount = 0;
+      wrongCount = 0;
+      timeBonus = 0;
+      answered = false;
+      qs('#q-total').textContent = TOTAL_QUESTIONS;
+      updateUI();
+      renderLeaderboard();
+      nextQuestion();
+    }
+
+    // Update base UI values
+    function updateUI() {
+      scoreEl.textContent = score;
+      streakEl.textContent = `🔥 Streak: ${streak}`;
+      qs('#q-total').textContent = TOTAL_QUESTIONS;
+      bestScoreEl.textContent = best;
+    }
+
+    // Display a question
+    function nextQuestion() {
+      clearTimer();
+      answered = false;
+      if (questionIndex >= TOTAL_QUESTIONS || !questions[questionIndex]) {
+        endGame();
+        return;
+      }
+      const q = questions[questionIndex];
+      qIndexEl.textContent = questionIndex + 1;
+      questionText.textContent = q.text;
+      qs('#q-difficulty').innerHTML = `Difficulty: <span class="capitalize">${q.difficulty}</span>`;
+      // Render answer buttons
+      answersEl.innerHTML = '';
+      q.choices.forEach((choice, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-answer bg-white/10 hover:bg-white/20 text-left p-4 rounded-xl transition flex items-center gap-3 focus:outline-none';
+        btn.setAttribute('data-index', i);
+        btn.setAttribute('aria-label', `Answer ${i+1}: ${choice}`);
+        btn.innerHTML = `<div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center font-semibold text-sm">${i+1}</div>
+                         <div class="flex-1">${choice}</div>`;
+        btn.addEventListener('click', () => selectAnswer(i));
+        answersEl.appendChild(btn);
+      });
+      // Reset timer
+      timeLeft = QUESTION_TIME;
+      updateTimerVisual();
+      startTimer();
+      // Progress
+      progressBar.style.width = `${Math.round((questionIndex / TOTAL_QUESTIONS) * 100)}%`;
+    }
+
+    // Timer handling
+    function startTimer() {
+      // set dashoffset proportionally
+      const circumference = 2 * Math.PI * 70; // r=70 in SVG
+      timerRing.style.strokeDasharray = circumference;
+      timerRing.style.transition = 'stroke-dashoffset 1s linear';
+      timer = setInterval(() => {
+        timeLeft--;
+        if (timeLeft <= 0) {
+          clearTimer();
+          timerText.textContent = '0s';
+          handleTimeout();
+        } else {
+          updateTimerVisual();
+        }
+      }, 1000);
+      updateTimerVisual();
+    }
+
+    function updateTimerVisual() {
+      const circumference = 2 * Math.PI * 70;
+      const fraction = timeLeft / QUESTION_TIME;
+      const offset = circumference * (1 - fraction);
+      timerRing.style.strokeDashoffset = offset;
+      timerText.textContent = `${timeLeft}s`;
+    }
+
+    function clearTimer() {
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+
+    // Select answer
+    function selectAnswer(idx) {
+      if (answered) return;
+      answered = true;
+      clearTimer();
+      const q = questions[questionIndex];
+      const correct = q.correct === idx;
+      const chosenBtn = answersEl.querySelector(`[data-index="${idx}"]`);
+      // Mark all buttons: correct in green, wrong in red
+      q.choices.forEach((_, i) => {
+        const b = answersEl.querySelector(`[data-index="${i}"]`);
+        b.disabled = true;
+        if (i === q.correct) {
+          b.classList.add('border-2', 'border-emerald-400', 'correct');
+          b.classList.remove('hover:bg-white/20');
+        } else if (i === idx) {
+          b.classList.add('border-2', 'border-rose-400', 'wrong');
+        } else {
+          b.classList.add('opacity-70');
+        }
+      });
+
+      if (correct) {
+        // scoring: base 100 + timeLeft*10 + streak bonus
+        const base = 100;
+        const timePoints = timeLeft * 10;
+        const streakBonus = Math.floor(streak / 3) * 20;
+        const gained = base + timePoints + streakBonus;
+        score += gained;
+        timeBonus += timePoints;
+        correctCount++;
+        streak++;
+        sfxCorrect.currentTime = 0; sfxCorrect.play();
+        confetti({ particleCount: 80, spread: 65, origin: { y: 0.4 } });
+      } else {
+        wrongCount++;
+        streak = 0;
+        sfxWrong.currentTime = 0; sfxWrong.play();
+      }
+      // update UI (with small delay)
+      setTimeout(() => {
+        questionIndex++;
+        updateUI();
+        // slight pause to let animation be seen
+        setTimeout(() => nextQuestion(), 650);
+      }, 200);
+    }
+
+    // When time runs out
+    function handleTimeout() {
+      if (answered) return;
+      answered = true;
+      wrongCount++;
+      streak = 0;
+      // mark correct answer
+      const q = questions[questionIndex];
+      q.choices.forEach((_, i) => {
+        const b = answersEl.querySelector(`[data-index="${i}"]`);
+        b.disabled = true;
+        if (i === q.correct) b.classList.add('border-2','border-emerald-400','correct');
+        else b.classList.add('opacity-70');
+      });
+      sfxWrong.currentTime = 0; sfxWrong.play();
+      setTimeout(() => {
+        questionIndex++;
+        updateUI();
+        setTimeout(() => nextQuestion(), 650);
+      }, 700);
+    }
+
+    // End game screen
+    function endGame() {
+      clearTimer();
+      // finalize
+      progressBar.style.width = `100%`;
+      finalScoreEl.textContent = score;
+      statCorrectEl.textContent = correctCount;
+      statWrongEl.textContent = wrongCount;
+      statStreakEl.textContent = streak;
+      statTimeBonusEl.textContent = timeBonus;
+      // update best
+      if (score > best) {
+        best = score;
+        localStorage.setItem('quizverse_best', best);
+      }
+      // show modal
+      resultsModal.classList.remove('hidden');
+      resultsModal.classList.add('flex');
+      // update leaderboard simulation: insert player's score
+      insertIntoLeaderboard('You', score);
+    }
+
+    // Insert you into simulated leaderboard
+    function insertIntoLeaderboard(name, playerScore) {
+      // simple simulated merge
+      const nodes = Array.from(leaderboardEl.children).map(el => {
+        const score = parseInt(el.querySelector('.font-bold').textContent, 10);
+        const title = el.querySelector('.font-semibold').textContent;
+        return {name: title, score};
+      });
+      nodes.push({name, score: playerScore});
+      nodes.sort((a,b)=>b.score-a.score);
+      nodes.splice(5); // keep top 5
+      // render
+      leaderboardEl.innerHTML = '';
+      nodes.forEach((p, idx) => {
+        const el = document.createElement('div');
+        el.className = 'flex items-center justify-between bg-white/5 p-3 rounded-lg';
+        el.innerHTML = `<div class="flex items-center gap-3">
+                         <div class="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center font-semibold">${idx+1}</div>
+                         <div>
+                           <div class="font-semibold">${p.name}</div>
+                           <div class="text-xs text-gray-300">Rank ${idx+1}</div>
+                         </div>
+                        </div>
+                        <div class="font-bold text-amber-400">${p.score}</div>`;
+        leaderboardEl.appendChild(el);
+      });
+    }
+
+    // Controls bindings
+    qs('#leave-btn').addEventListener('click', () => { location.href = 'index.html'; });
+    qs('#end-btn').addEventListener('click', () => endGame());
+    qs('#replay-btn').addEventListener('click', () => { resultsModal.classList.add('hidden'); resultsModal.classList.remove('flex'); startGame(); });
+    qs('#share-btn').addEventListener('click', () => {
+      const text = `I scored ${score} on QuizVerse! Can you beat me?`;
+      if (navigator.share) {
+        navigator.share({title:'QuizVerse', text, url: location.href});
+      } else {
+        navigator.clipboard.writeText(`${text} ${location.href}`).then(()=> alert('Copied share text to clipboard!'));
+      }
+    });
+
+    // Lifeline: 50/50
+    qs('#50-btn').addEventListener('click', () => {
+      // disable if already used — keep simple: hide two incorrect options
+      const visibleBtns = Array.from(answersEl.querySelectorAll('button')).filter(b => !b.disabled);
+      if (!visibleBtns.length) return;
+      // find current correct index
+      const q = questions[questionIndex];
+      const incorrect = visibleBtns.filter(b => parseInt(b.dataset.index,10) !== q.correct);
+      if (incorrect.length <= 1) return;
+      // remove two incorrect buttons (choose random)
+      const toRemove = incorrect.sort(() => Math.random()-0.5).slice(0, Math.min(2, incorrect.length));
+      toRemove.forEach(b => b.style.visibility = 'hidden');
+      qs('#50-btn').disabled = true;
+    });
+
+    // Skip button: skip current question (counts as wrong)
+    qs('#skip-btn').addEventListener('click', () => {
+      if (answered) return;
+      handleTimeout(); // treat as timed out
+    });
+
+    // Hint button (simple)
+    qs('#hint-btn').addEventListener('click', () => {
+      // show a small toast-like hint
+      const q = questions[questionIndex];
+      const hintText = `Hint: Think about common grammar usage.`;
+      // ephemeral small alert
+      const el = document.createElement('div');
+      el.className = 'fixed left-1/2 -translate-x-1/2 top-8 bg-indigo-800/90 text-white px-4 py-2 rounded-full shadow';
+      el.textContent = hintText;
+      document.body.appendChild(el);
+      setTimeout(()=> el.remove(), 2200);
+      qs('#hint-btn').disabled = true;
+    });
+
+    // Keyboard shortcuts for answers 1-4
+    window.addEventListener('keydown', (e) => {
+      if (e.key >= '1' && e.key <= '4') {
+        const idx = parseInt(e.key, 10) - 1;
+        const btn = answersEl.querySelector(`[data-index="${idx}"]`);
+        if (btn && btn.style.visibility !== 'hidden') btn.click();
+      }
+      if (e.key === 'Escape') {
+        // close modal if open
+        if (!resultsModal.classList.contains('hidden')) {
+          resultsModal.classList.add('hidden'); resultsModal.classList.remove('flex');
+        }
+      }
+    });
+
+    // Auto-select avatar from query param or random
+    function setupAvatar() {
+      const avatarUrl = params.get('avatar');
+      let initial = 'A';
+      if (avatarUrl) {
+        // if full url passed, derive first char
+        try {
+          const u = new URL(avatarUrl);
+          initial = (u.searchParams.get('seed') || 'A').charAt(0).toUpperCase();
+          avatarPreview.style.backgroundImage = `url(${avatarUrl})`;
+          avatarPreview.style.backgroundSize = 'cover';
+          avatarPreview.textContent = '';
+        } catch(e) {
+          initial = avatarUrl.charAt(0).toUpperCase();
+          avatarPreview.textContent = initial;
+        }
+      } else {
+        const seeds = ['A','N','L','Z'];
+        initial = seeds[Math.floor(Math.random()*seeds.length)];
+        avatarPreview.textContent = initial;
+      }
+    }
+
+    // Small splash for first paint
+    window.addEventListener('load', () => {
+      setupAvatar();
+      startGame();
+      renderLeaderboard();
+    });
+
+    // Prevent accidental navigation away (optional)
+    window.addEventListener('beforeunload', (e) => {
+      // comment out if you don't want prompt
+      // e.preventDefault();
+      // e.returnValue = '';
+    });
+
+  </script>
   <script type="module" src="js/game.js"></script>
 </body>
 </html>
