@@ -3,29 +3,199 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Lobby - QuizVerse</title>
+  <title>QuizVerse — Lobby</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto}</style>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    :root{--glass: rgba(255,255,255,0.06);--glass-strong: rgba(255,255,255,0.10)}
+    body{font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue"}
+
+    /* animated gradient background */
+    @keyframes gradientMove{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+    .animated-bg{background:linear-gradient(120deg,#06081A,#6D28D9 25%,#0F172A 50%,#06B6D4 75%);background-size:300% 300%;animation:gradientMove 18s ease infinite}
+
+    /* fade and slide animations */
+    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    .fade-up{animation:fadeUp .45s ease both}
+
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    .fade-in{animation:fadeIn .4s ease both}
+
+    @keyframes slideInRight{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+    .slide-in-right{animation:slideInRight .5s ease both}
+
+    @keyframes slideInLeft{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:none}}
+    .slide-in-left{animation:slideInLeft .5s ease both}
+
+    /* hover glow on cards */
+    .card-glow{transition:all .3s ease}
+    .card-glow:hover{box-shadow:0 18px 40px rgba(99,102,241,.14),0 6px 18px rgba(2,6,23,.35);transform:translateY(-6px) scale(1.01)}
+
+    /* avatar ring */
+    .avatar{border-radius:9999px;box-shadow:0 6px 14px rgba(2,6,23,.45)}
+
+    /* muted text */
+    .muted{color:rgba(255,255,255,0.66)}
+
+    /* focus outlines */
+    button:focus, input:focus {outline:3px solid rgba(99,102,241,.14);outline-offset:2px}
+
+    /* toast container */
+    #toastContainer{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:60}
+
+    /* smooth fade for showing/hiding */
+    .hidden.fade-out {animation:fadeIn .3s reverse forwards}
+    .show {display:block!important;animation:fadeIn .3s ease forwards}
+  </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-  <div class="max-w-3xl mx-auto p-6">
-    <h1 class="text-2xl font-bold">Create or Join Room</h1>
-    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div class="p-4 bg-white rounded shadow">
-        <h2 class="font-semibold">Create Room</h2>
-        <input id="hostName" placeholder="Your name" class="mt-2 w-full p-2 border rounded" />
-        <button id="createBtn" class="mt-2 bg-indigo-600 text-white px-4 py-2 rounded">Create</button>
-        <div id="createdBox" class="mt-2 hidden p-2 bg-green-50 rounded"></div>
+<body class="animated-bg min-h-screen text-white flex items-center justify-center p-6">
+  <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+    <!-- Left Panel -->
+    <section class="lg:col-span-1 bg-white/6 p-6 rounded-2xl border border-white/8 fade-up">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-400 to-pink-500 flex items-center justify-center text-indigo-900 font-extrabold text-2xl animate-pulse">Q</div>
+        <div>
+          <h1 class="text-xl font-extrabold">QuizVerse</h1>
+          <p class="text-sm muted">Premium Lobby • Build teams, ready up, and start together</p>
+        </div>
       </div>
-      <div class="p-4 bg-white rounded shadow">
-        <h2 class="font-semibold">Join Room</h2>
-        <input id="roomCode" placeholder="Room code" class="mt-2 w-full p-2 border rounded" />
-        <input id="joinName" placeholder="Your name" class="mt-2 w-full p-2 border rounded" />
-        <button id="joinBtn" class="mt-2 bg-amber-400 text-indigo-900 px-4 py-2 rounded">Join</button>
-        <div id="joinedBox" class="mt-2 hidden p-2 bg-green-50 rounded"></div>
+
+      <div class="mt-6 space-y-4">
+        <div class="bg-white/5 p-3 rounded-lg fade-in">
+          <div class="text-xs muted">Connected</div>
+          <div id="connStatus" class="font-semibold">—</div>
+        </div>
+
+        <div class="bg-white/5 p-3 rounded-lg fade-in">
+          <div class="text-xs muted">Your local nickname</div>
+          <input id="nameInput" placeholder="Enter display name" maxlength="24" class="mt-2 w-full p-2 rounded-md bg-transparent border border-white/8 transition duration-300 focus:scale-[1.02]" />
+          <div class="text-xs muted mt-2">Name saved locally for this device</div>
+        </div>
+
+        <div class="bg-white/5 p-3 rounded-lg fade-in">
+          <div class="text-xs muted">Quick actions</div>
+          <div class="mt-2 grid grid-cols-2 gap-2">
+            <button id="createQuickBtn" class="px-3 py-2 rounded-md bg-gradient-to-r from-amber-400 to-rose-400 text-indigo-900 font-semibold transition-transform duration-300 hover:scale-105">Create Room</button>
+            <button id="listRoomsBtn" class="px-3 py-2 rounded-md bg-white/6 transition-transform duration-300 hover:scale-105">Browse Rooms</button>
+          </div>
+        </div>
       </div>
-    </div>
+
+      <div class="mt-6 text-xs muted">Tips</div>
+      <ul class="mt-2 text-sm list-disc ml-5 muted space-y-1">
+        <li class="fade-in">Use a 5-letter uppercase room code to join</li>
+        <li class="fade-in">Host can start once all players are ready</li>
+        <li class="fade-in">Use copy button to share instantly</li>
+      </ul>
+    </section>
+
+    <!-- Middle Panel -->
+    <section class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- Create Card -->
+      <div class="bg-white/7 p-6 rounded-2xl border border-white/8 card-glow fade-up">
+        <h2 class="text-lg font-semibold">Create Room</h2>
+        <p class="text-sm muted mt-1">Start a new game. Configure privacy & max players.</p>
+
+        <div class="mt-4 space-y-3">
+          <label class="text-xs muted">Room name (optional)</label>
+          <input id="roomName" placeholder="e.g. Friday Night Trivia" class="w-full p-3 rounded-md bg-transparent border border-white/8 transition-all duration-300 focus:scale-[1.02]" />
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-xs muted">Max players</label>
+              <select id="maxPlayers" class="w-full p-3 rounded-md bg-transparent border border-white/8 transition-all duration-300 focus:scale-[1.02]">
+                <option>4</option>
+                <option selected>8</option>
+                <option>12</option>
+                <option>16</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs muted">Privacy</label>
+              <select id="privacy" class="w-full p-3 rounded-md bg-transparent border border-white/8 transition-all duration-300 focus:scale-[1.02]">
+                <option value="public">Public</option>
+                <option value="private">Private (invite code)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <button id="createBtn" class="flex-1 px-4 py-3 rounded-md bg-gradient-to-r from-emerald-400 to-amber-400 text-indigo-900 font-semibold transition-transform duration-300 hover:scale-105">Create Room</button>
+            <button id="createDemoBtn" class="px-4 py-3 rounded-md bg-white/6 transition-transform duration-300 hover:scale-105">Create Demo</button>
+          </div>
+
+          <div id="createdBox" class="hidden mt-2 p-3 rounded-md text-sm"></div>
+        </div>
+      </div>
+
+      <!-- Join Card -->
+      <div class="bg-white/7 p-6 rounded-2xl border border-white/8 card-glow fade-up">
+        <h2 class="text-lg font-semibold">Join Room</h2>
+        <p class="text-sm muted mt-1">Have a code? Enter it below to join a live game.</p>
+
+        <div class="mt-4 space-y-3">
+          <label class="text-xs muted">Room code</label>
+          <div class="relative">
+            <input id="roomCode" placeholder="ABCDE" maxlength="5" class="w-full p-3 rounded-md bg-transparent border border-white/8 uppercase tracking-widest text-center font-semibold transition-all duration-300 focus:scale-[1.02]" />
+            <button id="pasteBtn" class="absolute right-2 top-2 text-sm px-2 py-1 bg-white/6 rounded-md transition-transform duration-300 hover:scale-105">Paste</button>
+          </div>
+
+          <label class="text-xs muted">Display name</label>
+          <input id="joinName" placeholder="Your display name" maxlength="24" class="w-full p-3 rounded-md bg-transparent border border-white/8 transition-all duration-300 focus:scale-[1.02]" />
+
+          <div class="flex gap-2">
+            <button id="joinBtn" class="flex-1 px-4 py-3 rounded-md bg-gradient-to-r from-amber-400 to-rose-400 text-indigo-900 font-semibold transition-transform duration-300 hover:scale-105">Join</button>
+            <button id="spectateBtn" class="px-4 py-3 rounded-md bg-white/6 transition-transform duration-300 hover:scale-105">Spectate</button>
+          </div>
+
+          <div id="joinedBox" class="hidden mt-2 p-3 rounded-md text-sm"></div>
+        </div>
+      </div>
+
+      <!-- Room Panel -->
+      <div id="roomPanel" class="hidden lg:col-span-2 bg-white/5 p-4 rounded-2xl border border-white/8 slide-in-right">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 id="roomTitle" class="text-xl font-bold">Room <span id="roomCodeLabel"></span></h3>
+            <p id="roomMeta" class="text-sm muted">Host: <span id="hostNameLabel"></span> · Max <span id="maxLabel"></span></p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="copyBtn" class="px-3 py-2 rounded-md bg-white/6 transition-transform duration-300 hover:scale-105">Copy Code</button>
+            <button id="leaveBtn" class="px-3 py-2 rounded-md bg-red-600 text-white transition-transform duration-300 hover:scale-105">Leave</button>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="md:col-span-2">
+            <h4 class="font-semibold">Players</h4>
+            <ul id="playerList" class="mt-3 space-y-3"></ul>
+          </div>
+
+          <div>
+            <h4 class="font-semibold">Controls</h4>
+            <div class="mt-3 space-y-3">
+              <button id="readyBtn" class="w-full px-4 py-3 rounded-md bg-emerald-500 font-semibold transition-transform duration-300 hover:scale-105">I'm Ready</button>
+              <button id="promoteBtn" class="w-full px-4 py-2 rounded-md bg-white/6 hidden transition-transform duration-300 hover:scale-105">Promote to Host</button>
+              <div id="countdownBox" class="hidden text-center p-3 bg-white/6 rounded-md">Starting in <span id="countdown">5</span>s</div>
+              <div id="roomActions" class="text-sm muted">Waiting for host to start</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Room List -->
+      <div id="roomListPanel" class="hidden lg:col-span-2 bg-white/5 p-4 rounded-2xl border border-white/8 slide-in-left">
+        <h4 class="font-semibold">Live Rooms</h4>
+        <div id="roomsGrid" class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      </div>
+
+    </section>
   </div>
+
+  <!-- Toasts -->
+  <div id="toastContainer"></div>
   <script type="module" src="js/lobby.js"></script>
 </body>
 </html>
